@@ -1,0 +1,9 @@
+firebase_credentials_dev.json
+project_overview.txt
+data/*
+FunLearning.bat
+GEMINI.md
+PROJECT_PLAN.md
+.venv/*
+**/__pycache__/*
+/.idea
