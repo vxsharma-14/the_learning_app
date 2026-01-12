@@ -9,13 +9,12 @@ def render():
         st.session_state.selected_gk_topic_id = None
     if 'selected_gk_quiz_id' not in st.session_state:
         st.session_state.selected_gk_quiz_id = None
-    if 'start_time' not in st.session_state:
-        st.session_state.start_time = None
 
-    if st.session_state.start_time is None:
-        _render_selection()
-    else:
+
+    if st.session_state.get("quiz_in_progress"): # Use a simpler flag for quiz activity
         _render_activity()
+    else:
+        _render_selection()
 
 def _render_selection():
     """Displays a dynamic UI for selecting a quiz topic and level from Firestore."""
@@ -85,9 +84,11 @@ def _render_selection():
                 if st.session_state.questions:
                     st.session_state.user_answers = {i: None for i in range(len(st.session_state.questions))}
                     st.session_state.score = 0
-                    st.session_state.time_taken = 0
-                    st.session_state.start_time = datetime.now()
                     st.session_state.quiz_finished = False
+                    st.session_state.show_score_summary = False
+                    st.session_state.show_reward = False
+                    st.session_state.is_perfect_score = False
+                    st.session_state.quiz_in_progress = True # Set flag to indicate quiz is active
                     st.session_state.show_score_summary = False
                     st.session_state.show_reward = False
                     st.session_state.is_perfect_score = False
@@ -148,12 +149,12 @@ def _render_quiz_view():
         st.markdown("---")
     
     if st.button("Submit Quiz ✅", use_container_width=True):
-        st.session_state.time_taken = (datetime.now() - st.session_state.start_time).total_seconds()
         _calculate_score_and_save()
         if st.session_state.get("is_perfect_score"):
             st.session_state.show_reward = True
         else:
             st.session_state.show_score_summary = True
+        st.session_state.quiz_in_progress = False # Reset flag
         st.rerun()
 
 def _render_reward_view():
@@ -168,7 +169,6 @@ def _render_reward_view():
 def _render_score_summary_view():
     st.header("Quiz Completed! 🏆", divider="rainbow")
     st.subheader(f"Your Score: {st.session_state.score}/{len(st.session_state.questions)}")
-    st.write(f"Time Taken: {int(st.session_state.time_taken)} seconds")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Review Answers", use_container_width=True):
@@ -182,7 +182,6 @@ def _render_score_summary_view():
 def _render_results_view():
     st.header("Quiz Results 🏆", divider="rainbow")
     st.write(f"**Score:** {st.session_state.score}/{len(st.session_state.questions)}")
-    st.write(f"**Time Taken:** {int(st.session_state.time_taken)} seconds")
 
     st.subheader("Question Review:", divider="grey")
     for i, q_data in enumerate(st.session_state.questions):
@@ -234,8 +233,7 @@ def _calculate_score_and_save():
         "level": f"{topic_name} - {level_name}",
         "score": st.session_state.score,
         "total_questions": len(st.session_state.questions),
-        "time_taken": int(st.session_state.time_taken),
-        "timestamp": st.session_state.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "questions": questions_with_answers
     }
     data_manager.save_attempt(attempt_data)
