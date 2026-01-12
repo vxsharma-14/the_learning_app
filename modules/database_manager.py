@@ -1,3 +1,5 @@
+import os
+import json
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -5,9 +7,34 @@ from firebase_admin.firestore import transactional
 
 @st.cache_resource
 def initialize_firestore():
-    """Initializes the Firebase Admin SDK and returns a Firestore client."""
+    """Initializes the Firebase Admin SDK and returns a Firestore client.
+    Prioritizes credentials from environment variable 'FIREBASE_SERVICE_ACCOUNT_KEY',
+    falling back to 'firebase_credentials_dev.json' for local development."""
     if not firebase_admin._apps:
-        cred = credentials.Certificate("firebase_credentials_dev.json")
+        # Try loading credentials from environment variable first
+        if "FIREBASE_SERVICE_ACCOUNT_KEY" in os.environ:
+            try:
+                # The environment variable should contain the JSON string of the service account key
+                cred_json_string = os.environ["FIREBASE_SERVICE_ACCOUNT_KEY"]
+                cred_json = json.loads(cred_json_string)
+                cred = credentials.Certificate(cred_json)
+                st.success("Firebase credentials loaded from environment variables.")
+            except json.JSONDecodeError:
+                st.error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not a valid JSON string.")
+                st.stop() # Stop the app if credentials cannot be loaded
+            except Exception as e:
+                st.error(f"Error loading Firebase credentials from environment variable: {e}")
+                st.stop()
+        else:
+            # Fallback to local file for development
+            cred_file_path = "firebase_credentials_dev.json"
+            if os.path.exists(cred_file_path):
+                cred = credentials.Certificate(cred_file_path)
+                st.warning("Firebase credentials loaded from local file. Use environment variables for deployment.")
+            else:
+                st.error("Firebase credentials file not found and environment variable not set. Please configure Firebase credentials.")
+                st.stop() # Stop the app if credentials cannot be loaded
+        
         firebase_admin.initialize_app(cred)
     return firestore.client()
 

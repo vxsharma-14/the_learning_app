@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import hashlib
 from datetime import datetime
@@ -6,12 +7,8 @@ from modules import database_manager
 # --- Helper Functions for PIN ---
 
 def _generate_salt() -> bytes:
-    """Generates a random salt."""
-    # This can remain as a helper here, as it's part of the hashing logic, not storage.
-    # In a real app, os.urandom is preferred, but for simplicity we can use a simpler method
-    # For this implementation, we will use a part of the username and a fixed string
-    # This is not cryptographically secure but avoids os.urandom for simplicity in some environments
-    return hashlib.sha256(b"a_fixed_salt_string").digest()
+    """Generates a random salt using os.urandom for cryptographic security."""
+    return os.urandom(16)
 
 
 def _hash_pin(pin: str, salt: bytes) -> str:
