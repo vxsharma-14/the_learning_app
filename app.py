@@ -1,12 +1,6 @@
 import streamlit as st
-from modules import authentication
-from modules import navigation, database_manager
-from views import subject_selection, home_dashboard, home, admin_dashboard
-from modules.subjects import gk_quiz, math_exercise
-
-import streamlit as st
-from modules import authentication
-from modules import navigation, database_manager
+from modules import authentication, navigation, database_manager
+from modules.exceptions import FirebaseCredentialsError
 from views import subject_selection, home_dashboard, home, admin_dashboard
 from modules.subjects import gk_quiz, math_exercise
 
@@ -25,7 +19,7 @@ def main():
                 st.toast("Firebase initialized from local file.", icon="💻")
             st.session_state.db_initialized_once = True
             
-    except database_manager.FirebaseCredentialsError as e:
+    except FirebaseCredentialsError as e:
         st.error(f"Database Initialization Failed: {e}")
         st.stop()
     

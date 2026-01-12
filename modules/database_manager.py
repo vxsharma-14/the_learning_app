@@ -3,10 +3,7 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.firestore import transactional
-
-class FirebaseCredentialsError(Exception):
-    """Custom exception for Firebase credential loading errors."""
-    pass
+from modules.exceptions import FirebaseCredentialsError
 
 def _get_credentials():
     """
