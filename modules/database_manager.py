@@ -1,5 +1,4 @@
 import os
-import json
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -8,32 +7,30 @@ from firebase_admin.firestore import transactional
 @st.cache_resource
 def initialize_firestore():
     """Initializes the Firebase Admin SDK and returns a Firestore client.
-    Prioritizes credentials from environment variable 'FIREBASE_SERVICE_ACCOUNT_KEY',
-    falling back to 'firebase_credentials_dev.json' for local development."""
+    It prioritizes credentials from Streamlit's secrets manager for production
+    and falls back to a local JSON file for development."""
     if not firebase_admin._apps:
-        # Try loading credentials from environment variable first
-        if "FIREBASE_SERVICE_ACCOUNT_KEY" in os.environ:
+        # Check if running in Streamlit Cloud and secrets are set
+        if hasattr(st, 'secrets') and "firebase" in st.secrets:
             try:
-                # The environment variable should contain the JSON string of the service account key
-                cred_json_string = os.environ["FIREBASE_SERVICE_ACCOUNT_KEY"]
-                cred_json = json.loads(cred_json_string)
-                cred = credentials.Certificate(cred_json)
-                st.success("Firebase credentials loaded from environment variables.")
-            except json.JSONDecodeError:
-                st.error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not a valid JSON string.")
-                st.stop() # Stop the app if credentials cannot be loaded
+                # Load credentials from st.secrets (TOML format)
+                creds_dict = st.secrets.firebase.to_dict()
+                # The private_key needs to be handled carefully if it has escaped newlines
+                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+                cred = credentials.Certificate(creds_dict)
+                st.toast("Firebase initialized from Streamlit secrets.", icon="🚀")
             except Exception as e:
-                st.error(f"Error loading Firebase credentials from environment variable: {e}")
+                st.error(f"Error loading Firebase credentials from Streamlit secrets: {e}")
                 st.stop()
         else:
-            # Fallback to local file for development
+            # Fallback to local JSON file for development
             cred_file_path = "firebase_credentials_dev.json"
             if os.path.exists(cred_file_path):
                 cred = credentials.Certificate(cred_file_path)
-                st.warning("Firebase credentials loaded from local file. Use environment variables for deployment.")
+                st.toast("Firebase initialized from local file.", icon="💻")
             else:
-                st.error("Firebase credentials file not found and environment variable not set. Please configure Firebase credentials.")
-                st.stop() # Stop the app if credentials cannot be loaded
+                st.error("Firebase credentials not found. Please set them in Streamlit secrets or add firebase_credentials_dev.json for local development.")
+                st.stop()
         
         firebase_admin.initialize_app(cred)
     return firestore.client()
