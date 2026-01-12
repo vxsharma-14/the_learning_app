@@ -4,12 +4,30 @@ from modules import navigation, database_manager
 from views import subject_selection, home_dashboard, home, admin_dashboard
 from modules.subjects import gk_quiz, math_exercise
 
+import streamlit as st
+from modules import authentication
+from modules import navigation, database_manager
+from views import subject_selection, home_dashboard, home, admin_dashboard
+from modules.subjects import gk_quiz, math_exercise
+
 def main():
     """Main function to run the Streamlit application."""
     st.set_page_config(layout="wide")
     
-    # Initialize Firestore
-    database_manager.initialize_firestore()
+    # Initialize Firestore and handle potential credential errors
+    try:
+        database_manager.initialize_firestore()
+        # Add a toast for successful initialization, which is now safe to do here
+        if 'db_initialized_once' not in st.session_state:
+            if hasattr(st, 'secrets') and "firebase" in st.secrets:
+                st.toast("Firebase initialized from Streamlit secrets.", icon="🚀")
+            else:
+                st.toast("Firebase initialized from local file.", icon="💻")
+            st.session_state.db_initialized_once = True
+            
+    except database_manager.FirebaseCredentialsError as e:
+        st.error(f"Database Initialization Failed: {e}")
+        st.stop()
     
     authentication.initialize_session_state()
     navigation.render_sidebar()

@@ -4,35 +4,51 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.firestore import transactional
 
+class FirebaseCredentialsError(Exception):
+    """Custom exception for Firebase credential loading errors."""
+    pass
+
+def _get_credentials():
+    """
+    Gets Firebase credentials from Streamlit secrets or a local file.
+    Returns a credential object or raises FirebaseCredentialsError.
+    This function contains no UI elements to make it cache-compatible.
+    """
+    # Try loading from Streamlit secrets first (for production)
+    if hasattr(st, 'secrets') and "firebase" in st.secrets:
+        try:
+            creds_dict = st.secrets.firebase.to_dict()
+            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            return credentials.Certificate(creds_dict)
+        except Exception as e:
+            raise FirebaseCredentialsError(f"Error loading credentials from Streamlit secrets: {e}") from e
+
+    # Fallback to local JSON file for development
+    cred_file_path = "firebase_credentials_dev.json"
+    if os.path.exists(cred_file_path):
+        return credentials.Certificate(cred_file_path)
+
+    # If neither method works, raise an error
+    raise FirebaseCredentialsError(
+        "Firebase credentials not found. Please configure them in Streamlit secrets "
+        "or provide a 'firebase_credentials_dev.json' file for local development."
+    )
+
 @st.cache_resource
 def initialize_firestore():
-    """Initializes the Firebase Admin SDK and returns a Firestore client.
-    It prioritizes credentials from Streamlit's secrets manager for production
-    and falls back to a local JSON file for development."""
+    """
+    Initializes the Firebase Admin SDK using credentials from _get_credentials
+    and returns a Firestore client. This function is cached as a resource.
+    It has no UI side effects.
+    """
     if not firebase_admin._apps:
-        # Check if running in Streamlit Cloud and secrets are set
-        if hasattr(st, 'secrets') and "firebase" in st.secrets:
-            try:
-                # Load credentials from st.secrets (TOML format)
-                creds_dict = st.secrets.firebase.to_dict()
-                # The private_key needs to be handled carefully if it has escaped newlines
-                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
-                cred = credentials.Certificate(creds_dict)
-                st.toast("Firebase initialized from Streamlit secrets.", icon="🚀")
-            except Exception as e:
-                st.error(f"Error loading Firebase credentials from Streamlit secrets: {e}")
-                st.stop()
-        else:
-            # Fallback to local JSON file for development
-            cred_file_path = "firebase_credentials_dev.json"
-            if os.path.exists(cred_file_path):
-                cred = credentials.Certificate(cred_file_path)
-                st.toast("Firebase initialized from local file.", icon="💻")
-            else:
-                st.error("Firebase credentials not found. Please set them in Streamlit secrets or add firebase_credentials_dev.json for local development.")
-                st.stop()
-        
-        firebase_admin.initialize_app(cred)
+        try:
+            cred = _get_credentials()
+            firebase_admin.initialize_app(cred)
+        except FirebaseCredentialsError as e:
+            # Re-raise the specific error to be caught by the main app
+            raise e
+            
     return firestore.client()
 
 # --- Generic Document/Collection Functions ---
