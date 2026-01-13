@@ -6,7 +6,7 @@ from modules.subjects import gk_quiz, math_exercise
 
 def main():
     """Main function to run the Streamlit application."""
-    st.set_page_config(layout="wide")
+    st.set_page_config(layout="centered")
     
     # Initialize Firestore and handle potential credential errors
     try:
