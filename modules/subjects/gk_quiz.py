@@ -98,7 +98,8 @@ def _render_selection():
     
     st.markdown("---")
     if st.button("⬅️ Back to Subjects", key="back_to_subjects_selection"):
-        reset_activity_state(); set_view("subject_selection")
+        reset_activity_state()
+        set_view("subject_selection")
 
 def _render_activity():
     if st.session_state.get("show_reward"):
@@ -177,7 +178,8 @@ def _render_score_summary_view():
             st.rerun()
     with col2:
         if st.button("⬅️ Back to Subjects", use_container_width=True, key="summary_back_to_subjects"):
-            reset_activity_state(); set_view("subject_selection")
+            reset_activity_state()
+            set_view("subject_selection")
 
 def _render_results_view():
     st.header("Quiz Results 🏆", divider="rainbow")
@@ -201,7 +203,8 @@ def _render_results_view():
     
     st.markdown("---")
     if st.button("⬅️ Back to Subjects", key="back_to_subjects_results"):
-        reset_activity_state(); set_view("subject_selection")
+        reset_activity_state()
+        set_view("subject_selection")
 
 def _calculate_score_and_save():
     correct_answers = 0

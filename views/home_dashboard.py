@@ -42,7 +42,7 @@ def _render_analysis_view(selected_data: dict):
             is_correct = sorted(user_answer or []) == sorted(correct_answer_key or [])
 
         elif q_type == "text":
-            is_correct = str(user_answer).strip().lower() == str(correct_answer).strip().lower()
+            is_correct = str(user_answer).strip().lower() == str(correct_answer_key).strip().lower()
 
         if is_correct:
             topic_scores[topic]["correct"] += 1
@@ -90,6 +90,24 @@ def render():
     st.header("Student Dashboard 📊", divider="rainbow")
     st.info(f"Reviewing past attempts for **{st.session_state.student_name}**.")
 
+    # --- Display Badges ---
+    from modules import database_manager # Local import to avoid circular dependency
+    user_progress = database_manager.get_user_progress(st.session_state.student_name)
+    math_progress = user_progress.get("math", {})
+    
+    earned_badges = []
+    for chapter_id, chapter_data in math_progress.items():
+        if chapter_data.get("badge_earned"):
+            # Assume chapter_map is available or can be reconstructed for display name
+            # For simplicity, we'll use chapter_id for now
+            earned_badges.append(f"🏆 Chapter {chapter_id.replace('chapter','').capitalize()}")
+
+    if earned_badges:
+        st.subheader("🌟 Earned Badges 🌟")
+        st.success(" ".join(earned_badges))
+    st.markdown("---")
+
+
     if 'selected_attempt_file' not in st.session_state:
         st.session_state.selected_attempt_file = None
 
@@ -120,8 +138,8 @@ def render():
                 cols = st.columns([2, 3, 2, 2])
                 cols[0].write("**Date**"); cols[1].write("**Level**"); cols[2].write("**Score**"); cols[3].write("**Action**")
             elif subject_id == "Math":
-                cols = st.columns([2, 3, 3, 2, 2])
-                cols[0].write("**Date**"); cols[1].write("**Chapter**"); cols[2].write("**Story**"); cols[3].write("**Score**"); cols[4].write("**Action**")
+                cols = st.columns([2, 3, 3, 2])
+                cols[0].write("**Date**"); cols[1].write("**Chapter**"); cols[2].write("**Story**"); cols[3].write("**Score**")
 
             # --- Render Table Rows ---
             for attempt in attempts_by_subject[subject_id]:
@@ -134,14 +152,11 @@ def render():
                         st.session_state.selected_attempt_file = attempt['filename']
                         st.rerun()
                 elif subject_id == "Math":
-                    cols = st.columns([2, 3, 3, 2, 2])
+                    cols = st.columns([2, 3, 3, 2])
                     cols[0].write(attempt["timestamp"].split(" ")[0])
                     cols[1].write(attempt.get("level", "N/A")) # Chapter
                     cols[2].write(attempt.get("story", "N/A"))
                     cols[3].write(f"{attempt['score']}/{attempt['total_questions']}")
-                    if cols[4].button("Analyze", key=f"analyze_{attempt['filename']}"):
-                        st.session_state.selected_attempt_file = attempt['filename']
-                        st.rerun()
     
     st.markdown("---")
 

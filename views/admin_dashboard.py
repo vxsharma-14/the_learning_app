@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import pandas as pd
 from modules import database_manager
 
 def _render_smart_quiz_uploader():
@@ -135,12 +136,83 @@ def _render_user_management():
     except Exception as e:
         st.error(f"Failed to load users: {e}")
 
+def _render_analytics_dashboard():
+    st.subheader("Usage Analytics")
+
+    with st.spinner("Fetching usage data..."):
+        all_users_docs = database_manager.get_all_users() # Already excludes admin
+        all_attempts = database_manager.get_all_attempts()
+
+    num_users = len(all_users_docs)
+    num_attempts = len(all_attempts)
+
+    st.markdown("### Key Metrics")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Active Users (excl. admin)", num_users)
+    col2.metric("Total Quizzes Attempted", num_attempts)
+    if num_users > 0:
+        col3.metric("Avg. Attempts per User", f"{num_attempts / num_users:.2f}")
+    else:
+        col3.metric("Avg. Attempts per User", "N/A")
+
+    if not all_attempts:
+        st.info("No quiz attempts recorded yet for active users.")
+        return
+
+    attempts_df = pd.DataFrame(all_attempts)
+    # Ensure correct data types for easier analysis
+    attempts_df['timestamp'] = pd.to_datetime(attempts_df['timestamp'])
+    
+    st.markdown("---")
+    st.markdown("### Quizzes Attempted per User")
+    attempts_per_user = attempts_df.groupby('student_name').size().sort_values(ascending=False)
+    st.dataframe(attempts_per_user.reset_index(name='Attempts'))
+    st.bar_chart(attempts_per_user)
+
+    st.markdown("---")
+    st.markdown("### Quizzes Attempted by Subject")
+    attempts_by_subject = attempts_df.groupby('subject').size().sort_values(ascending=False)
+    st.dataframe(attempts_by_subject.reset_index(name='Attempts'))
+    st.bar_chart(attempts_by_subject)
+
+    st.markdown("---")
+    st.markdown("### Attempts by GK Topic and Level")
+    gk_attempts = attempts_df[attempts_df['subject'] == 'GK']
+    if not gk_attempts.empty:
+        attempts_by_gk_level = gk_attempts.groupby(['level']).size().sort_values(ascending=False)
+        st.dataframe(attempts_by_gk_level.reset_index(name='Attempts'))
+        st.bar_chart(attempts_by_gk_level)
+    else:
+        st.info("No GK quiz attempts recorded yet.")
+
+    st.markdown("---")
+    st.markdown("### Attempts by Math Chapter and Story")
+    math_attempts = attempts_df[attempts_df['subject'] == 'Math']
+    if not math_attempts.empty:
+        # Group by both, then reset index to make 'level' and 'story' regular columns
+        attempts_by_math_story_df = math_attempts.groupby(['level', 'story']).size().reset_index(name='Attempts')
+        # Sort the results for better visualization
+        attempts_by_math_story_df = attempts_by_math_story_df.sort_values('Attempts', ascending=False)
+        
+        st.dataframe(attempts_by_math_story_df) # Display the detailed data
+
+        # Create a new column for a combined X-axis label
+        attempts_by_math_story_df['Story'] = attempts_by_math_story_df['level'] + " - " + attempts_by_math_story_df['story']
+        
+        # Plot the chart using the new simplified DataFrame structure
+        st.bar_chart(attempts_by_math_story_df, x='Story', y='Attempts')
+    else:
+        st.info("No Math exercise attempts recorded yet.")
+
+
 def render():
     """Renders the Admin Dashboard page."""
     st.title("Admin Dashboard ⚙️")
     st.info("Welcome, Admin! Use the tools below to manage the application's content and users.")
-    tab1, tab2 = st.tabs(["Quiz Management", "User Management"])
+    tab1, tab2, tab3 = st.tabs(["Quiz Management", "User Management", "Usage Analytics"])
     with tab1:
         _render_quiz_management()
     with tab2:
         _render_user_management()
+    with tab3:
+        _render_analytics_dashboard()
